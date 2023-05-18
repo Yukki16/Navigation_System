@@ -70,7 +70,8 @@ public class ParticleNavigationSystem : MonoBehaviour
         {
             pathWaypoints.Add(corner);
         }
-        Debug.Log(pathWaypoints[0]);
+        pathWaypoints.Add(target.transform.position);
+        //Debug.Log(pathWaypoints[0]);
         
         SpawnSegments(pathWaypoints.Count);
 
@@ -101,6 +102,7 @@ public class ParticleNavigationSystem : MonoBehaviour
         {
             newPathWaypoints.Add(corner);
         }
+        newPathWaypoints.Add(target.transform.position);
         
         
         int numberOfCornersChanged = GetNumberOfCornersChanged(newPathWaypoints);
@@ -122,17 +124,26 @@ public class ParticleNavigationSystem : MonoBehaviour
 
         if (pathWaypoints.Count - newPathWaypoints.Count > 0)
         {
+            //Debug.Log(pathWaypoints.Count - newPathWaypoints.Count);
             for (int i = 0; i < pathWaypoints.Count - newPathWaypoints.Count; i++)
             {
                 pathWaypoints.RemoveAt(i);
-                Destroy(segments[i]);
+                for (int j = segments.Count - 1; j > 0; j--)
+                {
+                    if (segments[j].name.Contains(i.ToString()))
+                    {
+                        Destroy(segments[j]);
+                    }
+                }
             }
         }
 
         for (int i = 0; i < pathWaypoints.Count; i++)
         {
-            if(pathWaypoints[i] != newPathWaypoints[i])
+            //Debug.Log("I am checking if they differ");
+            if(!pathWaypoints[i].Equals(newPathWaypoints[i]))
             {
+                Debug.Log(pathWaypoints[i] + " " + "new " + newPathWaypoints[i]);
                 changes++;
             }
         }
@@ -143,9 +154,18 @@ public class ParticleNavigationSystem : MonoBehaviour
 
     private void ClearSegments(int amountToDestroy)
     {
-        for (int i = 0; i < amountToDestroy; i++)
+        for (int i = 0; i < amountToDestroy - 1; i++)
         {
-            Destroy(segments[i]);
+            /*if (amountToDestroy >= segments.Count)
+                break;*/
+            for (int j = segments.Count - 1; j > 0; j--)
+            {
+                //if(segments[j] != null)
+                if(segments[j].name.Contains(i.ToString()))
+                {
+                    Destroy(segments[j]);
+                }
+            }
         }
     }
 
@@ -175,30 +195,7 @@ public class ParticleNavigationSystem : MonoBehaviour
                 particle.transform.parent = segment.transform;
             }
         }
-
-        if(amountToSpawn == 1)
-        {
-            Vector3 currentWaypoint = pathWaypoints[0];
-            Vector3 nextWaypoint = target.position;
-            float segmentDistance = Vector3.Distance(currentWaypoint, nextWaypoint);
-            int numParticles = Mathf.CeilToInt(segmentDistance / particleSpacing);
-            float stepSize = 1f / numParticles;
-
-            GameObject segment = new GameObject("Segment" + 0);
-            segment.transform.parent = particlesContainer.transform;
-            segments.Add(segment);
-
-            for (int j = 0; j < numParticles; j++)
-            {
-                float t = j * stepSize;
-                Vector3 particlePosition = Vector3.Lerp(currentWaypoint, nextWaypoint, t);
-
-                GameObject particle = Instantiate(particlePrefab, new Vector3(particlePosition.x,
-                    GetTerrainHeight(particlePosition) + 0.5f, particlePosition.z), Quaternion.identity);
-                particle.transform.parent = segment.transform;
-            }
-        }
-        segments.Sort();
+        //segments.Sort();
     }
 
     float GetTerrainHeight(Vector3 position)
