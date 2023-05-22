@@ -50,9 +50,9 @@ public class ParticleNavigationSystem : MonoBehaviour
     {
         //Check if player has already a NavMeshAgent
         //If not create one with no movement
-        if(!player.TryGetComponent<NavMeshAgent>(out agent))
+        if (!player.TryGetComponent<NavMeshAgent>(out agent))
         {
-            agent = player.AddComponent<NavMeshAgent>();  
+            agent = player.AddComponent<NavMeshAgent>();
         }
         agent.agentTypeID = AgentTypeID.GetAgenTypeIDByName("NavigationSystemAgent");
         agent.speed = 0;
@@ -62,17 +62,23 @@ public class ParticleNavigationSystem : MonoBehaviour
         agent.radius = 0.5f;
         agent.height = 0.5f;
         agent.obstacleAvoidanceType = obstacleAvoidance;
-
+        //////////////////////////////////////////////////////////////////////////////////////////////////
+        
         // Create a container to hold the segments of particles
         particlesContainer = new GameObject("ParticlesContainer");
 
-        foreach(var corner in agent.path.corners)
+        ///////////////////////////////////////////////////////////////////////////////////////////////////
+        
+        // Add the initial corners
+        foreach (var corner in agent.path.corners)
         {
             pathWaypoints.Add(corner);
         }
+        //Add the target to the list
         pathWaypoints.Add(target.transform.position);
-        //Debug.Log(pathWaypoints[0]);
-        
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////////
+
         SpawnSegments(pathWaypoints.Count);
 
         SetDestination(target);
@@ -83,71 +89,125 @@ public class ParticleNavigationSystem : MonoBehaviour
 
     public void SetDestination(Transform target)
     {
-        if(coroutine != null)
-        StopCoroutine(coroutine);
+        if (coroutine != null)
+            StopCoroutine(coroutine);
         agent.destination = (target.position);
         coroutine = StartCoroutine(CheckForPathUpdate(pathCheckInterval));
     }
     IEnumerator CheckForPathUpdate(float timeOfFrequency)
     {
-        if(destinationReached)
+        /*if(agent.hasPath)
         {
-            if(segments.Count > 0)
+            for(int i = 0; i < agent.path.corners.Length; i++)
+            Debug.Log(agent.path.corners[i]);
+        }*/
+        if ((player.transform.position - agent.destination).magnitude < 1.5f)
+        {
+            destinationReached = true;
+        }
+        else
+        {
+            destinationReached = false;
+        }
+
+        if (destinationReached)
+        {
+            if (segments.Count > 0)
             {
                 ClearSegments(segments.Count);
             }
             yield break;
         }
+
+        ///////////////////////////////////////////////////////////////////////
+        //Adding the new corners to the list
+        newPathWaypoints.Clear();
         foreach (var corner in agent.path.corners)
         {
             newPathWaypoints.Add(corner);
         }
+        //Add the target to the list
         newPathWaypoints.Add(target.transform.position);
-        
-        
+        ////////////////////////////////////////////////////////////////////////
+
+        //Debug info
+        Debug.Log("Initial path waypoits: " + pathWaypoints.Count + " new path: " + newPathWaypoints.Count);
+        for (int i = 0; i < newPathWaypoints.Count; i++)
+        {
+            Debug.Log(" new: " + newPathWaypoints[i]);
+        }
+        for (int i = 0; i < pathWaypoints.Count; i++)
+        {
+            Debug.Log("path: " + pathWaypoints[i]);
+        }
+
+        ///////////////////////////////////////////////////////////////////////////////////////////
+
+
+        //Check for changes
         int numberOfCornersChanged = GetNumberOfCornersChanged(newPathWaypoints);
 
-        if(numberOfCornersChanged > 0)
+        ////////////////////////////////////////////////////////////////////////////////////
+            
+        //If there are changes clear the changes amount of segments and spawn new amount = nr of changes
+        if (numberOfCornersChanged > 0)
         {
             pathWaypoints = newPathWaypoints;
             ClearSegments(numberOfCornersChanged);
             SpawnSegments(numberOfCornersChanged);
         }
+
+        ////////////////////////////////////////////////////////////////////////////////////////////////
+        
+        //Coroutine loop
         yield return new WaitForSeconds(timeOfFrequency);
         coroutine = StartCoroutine(CheckForPathUpdate(timeOfFrequency));
-        yield break;
+        yield return null;
     }
 
     private int GetNumberOfCornersChanged(List<Vector3> newPathWaypoints)
     {
-        int changes = 0;
 
-        if (pathWaypoints.Count - newPathWaypoints.Count > 0)
+        int changes = 0;
+        int diff = Mathf.Abs(newPathWaypoints.Count - pathWaypoints.Count);
+        Debug.Log("Diff: " + diff);
+        
+        if (newPathWaypoints.Count > pathWaypoints.Count)
         {
-            //Debug.Log(pathWaypoints.Count - newPathWaypoints.Count);
-            for (int i = 0; i < pathWaypoints.Count - newPathWaypoints.Count; i++)
+            for (int i = newPathWaypoints.Count - 2; i >= diff; i--)
             {
-                pathWaypoints.RemoveAt(i);
-                for (int j = segments.Count - 1; j > 0; j--)
+                //Debug.Log(i);
+                if (!newPathWaypoints[i].Equals(pathWaypoints[i - diff]))
                 {
-                    if (segments[j].name.Contains(i.ToString()))
-                    {
-                        Destroy(segments[j]);
-                    }
+                    changes = i + 1;
+                    break;
                 }
             }
         }
-
-        for (int i = 0; i < pathWaypoints.Count; i++)
+        else if (newPathWaypoints.Count < pathWaypoints.Count)
         {
-            //Debug.Log("I am checking if they differ");
-            if(!pathWaypoints[i].Equals(newPathWaypoints[i]))
+            for (int i = pathWaypoints.Count - 2; i >= diff; i--)
             {
-                Debug.Log(pathWaypoints[i] + " " + "new " + newPathWaypoints[i]);
-                changes++;
+                if (!pathWaypoints[i].Equals(newPathWaypoints[i - diff]))
+                {
+                    changes += i + 1;
+                    break;
+                }
             }
         }
-
+        else if(newPathWaypoints.Count == pathWaypoints.Count)
+        {
+            for (int i = pathWaypoints.Count - 2; i >= 0; i--)
+            {
+                if (!pathWaypoints[i].Equals(newPathWaypoints[i]))
+                {
+                    changes += i + 1;
+                    break;
+                }
+            }
+        }
+        if (changes == 0)
+            changes = diff;
         Debug.Log("Changes: " + changes);
         return changes;
     }
@@ -156,26 +216,35 @@ public class ParticleNavigationSystem : MonoBehaviour
     {
         for (int i = 0; i < amountToDestroy - 1; i++)
         {
-            /*if (amountToDestroy >= segments.Count)
-                break;*/
-            for (int j = segments.Count - 1; j > 0; j--)
+            if (0 == segments.Count)
+                break;
+            //Debug.Log(segments.Count);
+            Destroy(segments[segments.Count - 1]);
+            segments.RemoveAt(segments.Count - 1);
+            /*if (i > segments.Count)
+                break;
+            for (int j = segments.Count - 1; j >= 0; j--)
             {
+                //Debug.Log(segments.Count);
+                //Debug.Log("J: " + j);
                 //if(segments[j] != null)
-                if(segments[j].name.Contains(i.ToString()))
+                if (segments[j].name.Contains(i.ToString()))
                 {
                     Destroy(segments[j]);
+                    segments.RemoveAt(j);
                 }
-            }
+            }*/
         }
     }
 
     private void SpawnSegments(int amountToSpawn)
     {
-        Debug.Log("Spawned segments");
-        for (int i = 0; i < amountToSpawn - 1; i++)
+        //Debug.Log("Spawned segments");
+        for (int i = amountToSpawn - 1; i > 0; i--)
         {
+            //Debug.Log(i);
             Vector3 currentWaypoint = pathWaypoints[i];
-            Vector3 nextWaypoint = pathWaypoints[i + 1];
+            Vector3 nextWaypoint = pathWaypoints[i - 1]; 
 
             float segmentDistance = Vector3.Distance(currentWaypoint, nextWaypoint);
             int numParticles = Mathf.CeilToInt(segmentDistance / particleSpacing);
@@ -184,13 +253,13 @@ public class ParticleNavigationSystem : MonoBehaviour
             GameObject segment = new GameObject("Segment" + i);
             segment.transform.parent = particlesContainer.transform;
             segments.Add(segment);
-            
+
             for (int j = 0; j < numParticles; j++)
             {
                 float t = j * stepSize;
                 Vector3 particlePosition = Vector3.Lerp(currentWaypoint, nextWaypoint, t);
 
-                GameObject particle = Instantiate(particlePrefab, new Vector3(particlePosition.x, 
+                GameObject particle = Instantiate(particlePrefab, new Vector3(particlePosition.x,
                     GetTerrainHeight(particlePosition) + 0.5f, particlePosition.z), Quaternion.identity);
                 particle.transform.parent = segment.transform;
             }

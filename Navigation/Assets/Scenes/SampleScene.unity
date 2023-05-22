@@ -613,7 +613,7 @@ MonoBehaviour:
   target: {fileID: 865677198}
   map: {fileID: 620934354}
   particlePrefab: {fileID: 535352794913231168, guid: d3934a2bfe531e74eaacc729282e5a1c, type: 3}
-  particleSpacing: 0.12
+  particleSpacing: 0.737
   pathCheckInterval: 0.3
   obstacleAvoidance: 1
 --- !u!65 &1970931111
