@@ -46,11 +46,14 @@ public class ParticleNavigationSystem : MonoBehaviour
     Coroutine coroutine;
     bool destinationReached = false;
 
+    NavMeshPath nav;
+
     private void Start()
     {
+        nav = new NavMeshPath();
         //Check if player has already a NavMeshAgent
         //If not create one with no movement
-        if(!player.TryGetComponent<NavMeshAgent>(out agent))
+        if (!player.TryGetComponent<NavMeshAgent>(out agent))
         {
             agent = player.AddComponent<NavMeshAgent>();  
         }
@@ -62,18 +65,18 @@ public class ParticleNavigationSystem : MonoBehaviour
         agent.radius = 0.5f;
         agent.height = 0.5f;
         agent.obstacleAvoidanceType = obstacleAvoidance;
+        agent.velocity = Vector3.zero;
+        agent.updatePosition = false;
+        agent.updateRotation = false;
+
 
         // Create a container to hold the segments of particles
         particlesContainer = new GameObject("ParticlesContainer");
 
-        foreach(var corner in agent.path.corners)
-        {
-            pathWaypoints.Add(corner);
-        }
-        pathWaypoints.Add(target.transform.position);
+        pathWaypoints = new List<Vector3>(agent.path.corners);
         //Debug.Log(pathWaypoints[0]);
         
-        SpawnSegments(pathWaypoints.Count);
+        //SpawnSegments(pathWaypoints.Count);
 
         SetDestination(target);
 
@@ -83,6 +86,7 @@ public class ParticleNavigationSystem : MonoBehaviour
 
     public void SetDestination(Transform target)
     {
+        ClearSegments(segments.Count);
         if(coroutine != null)
         StopCoroutine(coroutine);
         agent.destination = (target.position);
@@ -98,84 +102,76 @@ public class ParticleNavigationSystem : MonoBehaviour
             }
             yield break;
         }
-        foreach (var corner in agent.path.corners)
-        {
-            newPathWaypoints.Add(corner);
-        }
-        newPathWaypoints.Add(target.transform.position);
-        
+
+        if (agent.hasPath && agent.pathStatus == NavMeshPathStatus.PathComplete)
+            newPathWaypoints = new List<Vector3>(agent.path.corners);
+       yield return null;
         
         int numberOfCornersChanged = GetNumberOfCornersChanged(newPathWaypoints);
 
         if(numberOfCornersChanged > 0)
         {
-            pathWaypoints = newPathWaypoints;
+            pathWaypoints.Clear();
+            pathWaypoints.AddRange(newPathWaypoints);
             ClearSegments(numberOfCornersChanged);
             SpawnSegments(numberOfCornersChanged);
+            yield return null;
         }
         yield return new WaitForSeconds(timeOfFrequency);
         coroutine = StartCoroutine(CheckForPathUpdate(timeOfFrequency));
-        yield break;
+        yield return null;
     }
 
     private int GetNumberOfCornersChanged(List<Vector3> newPathWaypoints)
     {
         int changes = 0;
 
-        if (pathWaypoints.Count - newPathWaypoints.Count > 0)
-        {
-            //Debug.Log(pathWaypoints.Count - newPathWaypoints.Count);
-            for (int i = 0; i < pathWaypoints.Count - newPathWaypoints.Count; i++)
-            {
-                pathWaypoints.RemoveAt(i);
-                for (int j = segments.Count - 1; j > 0; j--)
-                {
-                    if (segments[j].name.Contains(i.ToString()))
-                    {
-                        Destroy(segments[j]);
-                    }
-                }
-            }
-        }
+        int i = pathWaypoints.Count - 1;
+        int j = newPathWaypoints.Count - 1;
 
-        for (int i = 0; i < pathWaypoints.Count; i++)
+        while(i >= 0 && j >= 0)
         {
-            //Debug.Log("I am checking if they differ");
-            if(!pathWaypoints[i].Equals(newPathWaypoints[i]))
+            if(!pathWaypoints[i].Equals(newPathWaypoints[j]))
             {
-                Debug.Log(pathWaypoints[i] + " " + "new " + newPathWaypoints[i]);
-                changes++;
-            }
-        }
+                Debug.Log("Current path point at " + i + "is " + pathWaypoints[i]);
+                Debug.Log("New path point at " + j + "is " + newPathWaypoints[j]);
 
+                changes = Mathf.Max(j, i) + 1;
+                break;
+            }
+            j--;
+            i--;
+        }
         Debug.Log("Changes: " + changes);
         return changes;
     }
 
     private void ClearSegments(int amountToDestroy)
     {
+        if(amountToDestroy > segments.Count)
+        {
+            amountToDestroy = segments.Count;
+        }
+
         for (int i = 0; i < amountToDestroy - 1; i++)
         {
-            /*if (amountToDestroy >= segments.Count)
-                break;*/
-            for (int j = segments.Count - 1; j > 0; j--)
-            {
-                //if(segments[j] != null)
-                if(segments[j].name.Contains(i.ToString()))
-                {
-                    Destroy(segments[j]);
-                }
-            }
+            Destroy(segments[segments.Count - 1]);
+            segments.RemoveAt(segments.Count - 1);
         }
     }
 
     private void SpawnSegments(int amountToSpawn)
     {
         Debug.Log("Spawned segments");
-        for (int i = 0; i < amountToSpawn - 1; i++)
+        if (amountToSpawn > pathWaypoints.Count)
+        {
+            amountToSpawn = pathWaypoints.Count - 1;
+        }
+        if(amountToSpawn >= 1 && pathWaypoints.Count >= 2)
+        for (int i = amountToSpawn - 1; i > 0; i--)
         {
             Vector3 currentWaypoint = pathWaypoints[i];
-            Vector3 nextWaypoint = pathWaypoints[i + 1];
+            Vector3 nextWaypoint = pathWaypoints[i - 1];
 
             float segmentDistance = Vector3.Distance(currentWaypoint, nextWaypoint);
             int numParticles = Mathf.CeilToInt(segmentDistance / particleSpacing);
@@ -191,7 +187,7 @@ public class ParticleNavigationSystem : MonoBehaviour
                 Vector3 particlePosition = Vector3.Lerp(currentWaypoint, nextWaypoint, t);
 
                 GameObject particle = Instantiate(particlePrefab, new Vector3(particlePosition.x, 
-                    GetTerrainHeight(particlePosition) + 0.5f, particlePosition.z), Quaternion.identity);
+                GetTerrainHeight(particlePosition) + 0.5f, particlePosition.z), Quaternion.identity);
                 particle.transform.parent = segment.transform;
             }
         }
