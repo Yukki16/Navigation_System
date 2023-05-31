@@ -116,10 +116,8 @@ public class ParticleNavigationSystem : MonoBehaviour
         {
             pathWaypoints.Clear();
             pathWaypoints.AddRange(newPathWaypoints);
-            ClearSegments(numberOfCornersChanged);
-            yield return null;
+            yield return ClearSegments(numberOfCornersChanged);
             SpawnSegments(numberOfCornersChanged);
-            yield return null;
         }
         yield return new WaitForSeconds(timeOfFrequency);
         coroutine = StartCoroutine(CheckForPathUpdate(timeOfFrequency));
@@ -135,7 +133,7 @@ public class ParticleNavigationSystem : MonoBehaviour
 
         while(i >= 0 && j >= 0)
         {
-            if(!pathWaypoints[i].Equals(newPathWaypoints[j]) && Mathf.Abs(pathWaypoints[i].magnitude - newPathWaypoints[j].magnitude) > 1.5f)
+            if(!pathWaypoints[i].Equals(newPathWaypoints[j]) && Mathf.Abs(pathWaypoints[i].magnitude - newPathWaypoints[j].magnitude) > 0.5f)
             {
                 //Debug.Log("Current path point at " + i + "is " + pathWaypoints[i]);
                 //Debug.Log("New path point at " + j + "is " + newPathWaypoints[j]);
@@ -150,14 +148,14 @@ public class ParticleNavigationSystem : MonoBehaviour
         return changes;
     }
 
-    private void ClearSegments(int amountToDestroy)
+    private int ClearSegments(int amountToDestroy)
     {
         if(amountToDestroy > segments.Count)
         {
             amountToDestroy = segments.Count;
         }
 
-        if (segments.Count == 2)
+        if (segments.Count == 2 || segments.Count > pathWaypoints.Count)
         {
             amountToDestroy = segments.Count;
         }
@@ -167,6 +165,7 @@ public class ParticleNavigationSystem : MonoBehaviour
             Destroy(segments[segments.Count - 1]);
             segments.RemoveAt(segments.Count - 1);
         }
+        return 0;
     }
 
     private void SpawnSegments(int amountToSpawn)
