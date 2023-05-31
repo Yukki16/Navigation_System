@@ -41,7 +41,7 @@ public class ParticleNavigationSystem : MonoBehaviour
     List<Vector3> pathWaypoints = new List<Vector3>();
     List<Vector3> newPathWaypoints = new List<Vector3>();
     GameObject particlesContainer;
-    List<GameObject> segments = new List<GameObject>();
+    public List<GameObject> segments = new List<GameObject>();
 
     Coroutine coroutine;
     bool destinationReached = false;
@@ -103,10 +103,13 @@ public class ParticleNavigationSystem : MonoBehaviour
             yield break;
         }
 
-        if (agent.hasPath && agent.pathStatus == NavMeshPathStatus.PathComplete)
-            newPathWaypoints = new List<Vector3>(agent.path.corners);
-       yield return null;
-        
+        /*if (agent.hasPath && agent.pathStatus == NavMeshPathStatus.PathComplete)
+            
+       yield return null;*/
+
+        yield return NavMesh.CalculatePath(transform.position, target.position, NavMesh.AllAreas, nav);
+        newPathWaypoints = new List<Vector3>(nav.corners);
+        //yield return null;
         int numberOfCornersChanged = GetNumberOfCornersChanged(newPathWaypoints);
 
         if(numberOfCornersChanged > 0)
@@ -114,6 +117,7 @@ public class ParticleNavigationSystem : MonoBehaviour
             pathWaypoints.Clear();
             pathWaypoints.AddRange(newPathWaypoints);
             ClearSegments(numberOfCornersChanged);
+            yield return null;
             SpawnSegments(numberOfCornersChanged);
             yield return null;
         }
@@ -131,10 +135,10 @@ public class ParticleNavigationSystem : MonoBehaviour
 
         while(i >= 0 && j >= 0)
         {
-            if(!pathWaypoints[i].Equals(newPathWaypoints[j]))
+            if(!pathWaypoints[i].Equals(newPathWaypoints[j]) && Mathf.Abs(pathWaypoints[i].magnitude - newPathWaypoints[j].magnitude) > 1.5f)
             {
-                Debug.Log("Current path point at " + i + "is " + pathWaypoints[i]);
-                Debug.Log("New path point at " + j + "is " + newPathWaypoints[j]);
+                //Debug.Log("Current path point at " + i + "is " + pathWaypoints[i]);
+                //Debug.Log("New path point at " + j + "is " + newPathWaypoints[j]);
 
                 changes = Mathf.Max(j, i) + 1;
                 break;
@@ -142,7 +146,7 @@ public class ParticleNavigationSystem : MonoBehaviour
             j--;
             i--;
         }
-        Debug.Log("Changes: " + changes);
+        //Debug.Log("Changes: " + changes);
         return changes;
     }
 
@@ -153,8 +157,13 @@ public class ParticleNavigationSystem : MonoBehaviour
             amountToDestroy = segments.Count;
         }
 
-        for (int i = 0; i < amountToDestroy - 1; i++)
+        if (segments.Count == 2)
         {
+            amountToDestroy = segments.Count;
+        }
+        for (int i = 0; i < amountToDestroy; i++)
+        {
+            Debug.Log("Destroyed " + segments[segments.Count - 1].name);
             Destroy(segments[segments.Count - 1]);
             segments.RemoveAt(segments.Count - 1);
         }
@@ -162,16 +171,32 @@ public class ParticleNavigationSystem : MonoBehaviour
 
     private void SpawnSegments(int amountToSpawn)
     {
-        Debug.Log("Spawned segments");
+        //Debug.Log("Spawned segments");
         if (amountToSpawn > pathWaypoints.Count)
         {
-            amountToSpawn = pathWaypoints.Count - 1;
+            amountToSpawn = pathWaypoints.Count;
         }
-        if(amountToSpawn >= 1 && pathWaypoints.Count >= 2)
-        for (int i = amountToSpawn - 1; i > 0; i--)
+        
+        //if(amountToSpawn >= 1 && pathWaypoints.Count >= 2)
+        if(pathWaypoints.Count == 2)
         {
-            Vector3 currentWaypoint = pathWaypoints[i];
-            Vector3 nextWaypoint = pathWaypoints[i - 1];
+            amountToSpawn = pathWaypoints.Count;
+        }
+        for (int i = amountToSpawn - 1; i >= 0; i--)
+        {
+            Debug.Log("Spawned segment with number" + i);
+            Vector3 currentWaypoint = new Vector3();
+            Vector3 nextWaypoint = new Vector3();
+            if (i > 0)
+            {
+                currentWaypoint = pathWaypoints[i];
+                nextWaypoint = pathWaypoints[i - 1];
+            }
+            else
+            {
+                currentWaypoint = pathWaypoints[i];
+                nextWaypoint = pathWaypoints[i];
+            }
 
             float segmentDistance = Vector3.Distance(currentWaypoint, nextWaypoint);
             int numParticles = Mathf.CeilToInt(segmentDistance / particleSpacing);
@@ -180,16 +205,21 @@ public class ParticleNavigationSystem : MonoBehaviour
             GameObject segment = new GameObject("Segment" + i);
             segment.transform.parent = particlesContainer.transform;
             segments.Add(segment);
-            
+
             for (int j = 0; j < numParticles; j++)
             {
                 float t = j * stepSize;
                 Vector3 particlePosition = Vector3.Lerp(currentWaypoint, nextWaypoint, t);
 
-                GameObject particle = Instantiate(particlePrefab, new Vector3(particlePosition.x, 
-                GetTerrainHeight(particlePosition) + 0.5f, particlePosition.z), Quaternion.identity);
+                GameObject particle = Instantiate(particlePrefab, new Vector3(particlePosition.x,
+                particlePosition.y, particlePosition.z), Quaternion.identity);
                 particle.transform.parent = segment.transform;
             }
+            /*GameObject segment = new GameObject("Segment" + i);
+            segment.transform.parent = particlesContainer.transform;
+            segments.Add(segment);
+            GameObject particle = Instantiate(particlePrefab, pathWaypoints[i], Quaternion.identity);
+            particle.transform.parent = segment.transform;*/
         }
         //segments.Sort();
     }
