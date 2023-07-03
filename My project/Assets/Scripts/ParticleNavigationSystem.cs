@@ -11,7 +11,7 @@ public class ParticleNavigationSystem : MonoBehaviour
     //delete the existing "segments" -> gameobjects that contain the particles
     //create and move new segments at the begining of the list
 
-    NavMeshAgent agent;
+    //NavMeshAgent agent;
 
     [Header("Player")]
     public GameObject player;
@@ -20,8 +20,8 @@ public class ParticleNavigationSystem : MonoBehaviour
     [Tooltip("The object that needs to be reached")]
     public Transform target;
 
-    [Header("The map")]
-    public Terrain map;
+    /*[Header("The map")]
+    public Terrain map;*/
 
     [Header("Particle")]
     [Tooltip("Is the particle prefab that will spawn on the ground")]
@@ -35,8 +35,8 @@ public class ParticleNavigationSystem : MonoBehaviour
     [Tooltip("The time at which the path is updated")]
     public float pathCheckInterval = 0.3f;
 
-    [Tooltip("How much should it go throgh the obstacles")]
-    public ObstacleAvoidanceType obstacleAvoidance = ObstacleAvoidanceType.LowQualityObstacleAvoidance;
+    /*[Tooltip("How much should it go throgh the obstacles")]
+    public ObstacleAvoidanceType obstacleAvoidance = ObstacleAvoidanceType.LowQualityObstacleAvoidance;*/
 
     List<Vector3> pathWaypoints = new List<Vector3>();
     List<Vector3> newPathWaypoints = new List<Vector3>();
@@ -53,7 +53,7 @@ public class ParticleNavigationSystem : MonoBehaviour
         nav = new NavMeshPath();
         //Check if player has already a NavMeshAgent
         //If not create one with no movement
-        if (!player.TryGetComponent<NavMeshAgent>(out agent))
+        /*if (!player.TryGetComponent<NavMeshAgent>(out agent))
         {
             agent = player.AddComponent<NavMeshAgent>();  
         }
@@ -67,31 +67,33 @@ public class ParticleNavigationSystem : MonoBehaviour
         agent.obstacleAvoidanceType = obstacleAvoidance;
         agent.velocity = Vector3.zero;
         agent.updatePosition = false;
-        agent.updateRotation = false;
+        agent.updateRotation = false;*/
 
 
         // Create a container to hold the segments of particles
         particlesContainer = new GameObject("ParticlesContainer");
 
-        pathWaypoints = new List<Vector3>(agent.path.corners);
+        NavMesh.CalculatePath(transform.position, target.position, NavMesh.AllAreas, nav);
+        pathWaypoints = new List<Vector3>(nav.corners);
         //Debug.Log(pathWaypoints[0]);
         
         //SpawnSegments(pathWaypoints.Count);
 
-        SetDestination(target);
+        //SetDestination(target);
+        coroutine = StartCoroutine(CheckForPathUpdate(pathCheckInterval));
 
         // Start checking for path updates
         //coroutine = StartCoroutine(CheckForPathUpdate(pathCheckInterval));
     }
 
-    public void SetDestination(Transform target)
+    /*public void SetDestination(Transform target)
     {
         ClearSegments(segments.Count);
         if(coroutine != null)
         StopCoroutine(coroutine);
         agent.destination = (target.position);
         coroutine = StartCoroutine(CheckForPathUpdate(pathCheckInterval));
-    }
+    }*/
     IEnumerator CheckForPathUpdate(float timeOfFrequency)
     {
         if(destinationReached)
@@ -223,7 +225,7 @@ public class ParticleNavigationSystem : MonoBehaviour
         //segments.Sort();
     }
 
-    float GetTerrainHeight(Vector3 position)
+    /*float GetTerrainHeight(Vector3 position)
     {
         if (map != null)
         {
@@ -246,5 +248,5 @@ public class ParticleNavigationSystem : MonoBehaviour
             Debug.LogError("No terrain has been assigned for the navigation");
             return 0;
         }
-    }
+    }*/
 }
